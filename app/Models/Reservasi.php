@@ -19,7 +19,7 @@ class Reservasi extends Model
         'user_id',
         'jadwal_id',
         'lapangan_id',
-        'tipe_sewa', //harian, jam
+        'tipe_sewa', // harian, jam
         'tanggal_mulai',
         'tanggal_selesai',
         'jam_mulai',

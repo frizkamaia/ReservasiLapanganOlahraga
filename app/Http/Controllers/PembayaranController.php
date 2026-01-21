@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Pembayaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +13,7 @@ class PembayaranController extends Controller
         $pembayaran = Pembayaran::with([
             'reservasi.user',
             'reservasi.lapangan',
-            'reservasi.jadwal'
+            'reservasi.jadwal',
         ])->latest()->get();
 
         return view('admin.validasi.index', compact('pembayaran'));
@@ -25,15 +24,15 @@ class PembayaranController extends Controller
         $pembayaran->load([
             'reservasi.user',
             'reservasi.lapangan',
-            'reservasi.jadwal'
+            'reservasi.jadwal',
         ]);
 
         // 🔒 Validasi data sebelum ke view
         if (
-            !$pembayaran->reservasi ||
-            !$pembayaran->reservasi->user ||
-            !$pembayaran->reservasi->lapangan ||
-            !$pembayaran->reservasi->jadwal
+            ! $pembayaran->reservasi ||
+            ! $pembayaran->reservasi->user ||
+            ! $pembayaran->reservasi->lapangan ||
+            ! $pembayaran->reservasi->jadwal
         ) {
             return redirect()
                 ->route('admin.validasi.index')
@@ -46,47 +45,51 @@ class PembayaranController extends Controller
     public function update(Request $request, Pembayaran $pembayaran)
     {
         $request->validate([
-            'status' => 'required|in:valid,tidak valid'
+            'status' => 'required|in:valid,tidak valid',
         ]);
+
+        // ✅ CEGAH DOUBLE PROSES BERDASARKAN RESERVASI
+        if ($pembayaran->reservasi->status !== 'pending') {
+            return back()->with('error', 'Reservasi sudah diproses');
+        }
 
         DB::transaction(function () use ($request, $pembayaran) {
 
-            // 🔒 Validasi relasi WAJIB
             if (
-                !$pembayaran->reservasi ||
-                !$pembayaran->reservasi->jadwal
+                ! $pembayaran->reservasi ||
+                ! $pembayaran->reservasi->jadwal
             ) {
                 throw new \Exception('Data reservasi atau jadwal tidak lengkap');
             }
 
             $reservasi = $pembayaran->reservasi;
-            $jadwal    = $reservasi->jadwal;
+            $jadwal = $reservasi->jadwal;
 
             // Update status pembayaran
             $pembayaran->update([
-                'status' => $request->status
+                'status' => $request->status,
             ]);
 
             if ($request->status === 'valid') {
 
-                // ✅ DISETUJUI
+                // ✅ SETUJUI
                 $reservasi->update([
-                    'status' => 'disetujui'
+                    'status' => 'disetujui',
                 ]);
 
                 $jadwal->update([
-                    'status' => 'booked'
+                    'status' => 'booked',
                 ]);
 
             } else {
 
-                // ❌ DITOLAK
+                // ❌ TOLAK
                 $reservasi->update([
-                    'status' => 'ditolak'
+                    'status' => 'ditolak',
                 ]);
 
                 $jadwal->update([
-                    'status' => 'available'
+                    'status' => 'available',
                 ]);
             }
         });

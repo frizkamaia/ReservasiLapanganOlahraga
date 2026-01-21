@@ -14,37 +14,38 @@ class LapanganController extends Controller
     public function index()
     {
         $lapangan = Lapangan::all();
+
         return view('admin.lapangan.index', compact('lapangan'));
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'nama_lapangan' => 'required',
-        'jenis' => 'required',
-        'harga_per_jam' => 'required|integer',
-        'deskripsi' => 'nullable',
-        'foto' => 'required|image|mimes:jpg,png,jpeg|max:2048',
-    ]);
+    {
+        $request->validate([
+            'nama_lapangan' => 'required',
+            'jenis' => 'required',
+            'harga_per_jam' => 'required|integer',
+            'deskripsi' => 'nullable',
+            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
+        ]);
 
-    // Upload foto
-    $fotoPath = null;
-    if ($request->hasFile('foto')) {
-        $fotoPath = $request->file('foto')->store('foto_lapangan', 'public');
+        $fotoPath = null;
+
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('foto_lapangan', 'public');
+        }
+
+        Lapangan::create([
+            'nama_lapangan' => $request->nama_lapangan,
+            'jenis' => $request->jenis,
+            'harga_per_jam' => $request->harga_per_jam,
+            'deskripsi' => $request->deskripsi,
+            'foto' => $fotoPath,
+        ]);
+
+        return redirect()
+            ->route('admin.lapangan.index')
+            ->with('success', 'Data lapangan berhasil disimpan');
     }
-
-    // SIMPAN KE DATABASE
-    Lapangan::create([
-        'nama_lapangan' => $request->nama_lapangan,
-        'jenis' => $request->jenis,
-        'harga_per_jam' => $request->harga_per_jam,
-        'deskripsi' => $request->deskripsi,
-        'foto' => $fotoPath,
-    ]);
-
-    // REDIRECT
-    return redirect()->route('admin.lapangan.index')->with('success', 'Data lapangan berhasil disimpan');
-}
 
     public function create()
     {
@@ -53,60 +54,58 @@ class LapanganController extends Controller
 
     public function show(Lapangan $lapangan)
     {
-        //
-}
+    }
 
-public function edit(Lapangan $lapangan)
-{
-    return view('admin.lapangan.edit', compact('lapangan'));
-}
+    public function edit(Lapangan $lapangan)
+    {
+        return view('admin.lapangan.edit', compact('lapangan'));
+    }
 
     public function update(Request $request, $id)
-{
-    $lapangan = Lapangan::findOrFail($id);
+    {
+        $lapangan = Lapangan::findOrFail($id);
 
-    $request->validate([
-        'nama_lapangan' => 'required',
-        'jenis' => 'required',
-        'harga_per_jam' => 'required|integer',
-        'deskripsi' => 'nullable',
-        'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
-    ]);
+        $request->validate([
+            'nama_lapangan' => 'required',
+            'jenis' => 'required',
+            'harga_per_jam' => 'required|integer',
+            'deskripsi' => 'nullable',
+            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
+        ]);
 
-    $fotoPath = $lapangan->foto;
+        $fotoPath = $lapangan->foto;
 
-    if ($request->hasFile('foto')) {
+        if ($request->hasFile('foto')) {
+            if ($lapangan->foto) {
+                Storage::disk('public')->delete($lapangan->foto);
+            }
+
+            $fotoPath = $request->file('foto')->store('foto_lapangan', 'public');
+        }
+
+        $lapangan->update([
+            'nama_lapangan' => $request->nama_lapangan,
+            'jenis' => $request->jenis,
+            'harga_per_jam' => $request->harga_per_jam,
+            'deskripsi' => $request->deskripsi,
+            'foto' => $fotoPath,
+        ]);
+
+        return redirect()->route('admin.lapangan.index')
+            ->with('success', 'Data lapangan berhasil diperbarui!');
+    }
+
+    public function destroy($id)
+    {
+        $lapangan = Lapangan::findOrFail($id);
+
         if ($lapangan->foto) {
             Storage::disk('public')->delete($lapangan->foto);
         }
 
-        $fotoPath = $request->file('foto')->store('foto_lapangan', 'public');
+        $lapangan->delete();
+
+        return redirect()->route('admin.lapangan.index')
+            ->with('success', 'Data lapangan berhasil dihapus!');
     }
-
-    $lapangan->update([
-        'nama_lapangan' => $request->nama_lapangan,
-        'jenis' => $request->jenis,
-        'harga_per_jam' => $request->harga_per_jam,
-        'deskripsi' => $request->deskripsi,
-        'foto' => $fotoPath,
-    ]);
-
-    return redirect()->route('admin.lapangan.index')
-        ->with('success', 'Data lapangan berhasil diperbarui!');
-}
-
-public function destroy($id)
-{
-    $lapangan = Lapangan::findOrFail($id);
-
-    if ($lapangan->foto) {
-        Storage::disk('public')->delete($lapangan->foto);
-    }
-
-    $lapangan->delete();
-
-    return redirect()->route('admin.lapangan.index')
-        ->with('success', 'Data lapangan berhasil dihapus!');
-}
-
 }

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <title>Struk Reservasi</title>
@@ -19,7 +20,7 @@
             background: #ffffff;
             border-radius: 12px;
             padding: 30px;
-            box-shadow: 0 10px 25px rgba(0,0,0,.08);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
         }
 
         .struk h4 {
@@ -49,6 +50,7 @@
             body {
                 background: white;
             }
+
             .btn-print {
                 display: none;
             }
@@ -58,79 +60,80 @@
 
 <body>
 
-<div class="struk">
-    <h4>LAPANGAN OLAHRAGA</h4>
-    <p class="text-center text-muted mb-0">Struk Reservasi</p>
+    <div class="struk">
+        <h4>LAPANGAN OLAHRAGA</h4>
+        <p class="text-center text-muted mb-0">Struk Reservasi</p>
 
-    <div class="divider"></div>
+        <div class="divider"></div>
 
-    <div class="row-info">
-        <span>Nama User</span>
-        <strong>{{ $reservasi->user->name }}</strong>
-    </div>
-
-    <div class="row-info">
-        <span>Lapangan</span>
-        <strong>{{ $reservasi->lapangan->nama_lapangan }}</strong>
-    </div>
-
-    <div class="row-info">
-        <span>Jenis</span>
-        <strong>{{ ucfirst($reservasi->lapangan->jenis) }}</strong>
-    </div>
-
-    <div class="row-info">
-        <span>Tanggal</span>
-        <strong>
-            {{ \Carbon\Carbon::parse($reservasi->jadwal->tanggal)->format('d M Y') }}
-        </strong>
-    </div>
-
-    @if($reservasi->tipe_sewa === 'harian')
         <div class="row-info">
-            <span>Tipe Sewa</span>
-            <strong>Harian</strong>
+            <span>Nama User</span>
+            <strong>{{ $reservasi->user->name }}</strong>
         </div>
-    @else
+
         <div class="row-info">
-            <span>Jam</span>
+            <span>Lapangan</span>
+            <strong>{{ $reservasi->lapangan->nama_lapangan }}</strong>
+        </div>
+
+        <div class="row-info">
+            <span>Jenis</span>
+            <strong>{{ ucfirst($reservasi->lapangan->jenis) }}</strong>
+        </div>
+
+        <div class="row-info">
+            <span>Tanggal</span>
             <strong>
-                {{ $reservasi->jadwal->jam_mulai }} - {{ $reservasi->jadwal->jam_selesai }}
+                {{ \Carbon\Carbon::parse($reservasi->jadwal->tanggal)->format('d M Y') }}
             </strong>
         </div>
-    @endif
 
-    <div class="divider"></div>
+        @if ($reservasi->tipe_sewa === 'harian')
+            <div class="row-info">
+                <span>Tipe Sewa</span>
+                <strong>Harian</strong>
+            </div>
+        @else
+            <div class="row-info">
+                <span>Jam</span>
+                <strong>
+                    {{ $reservasi->jadwal->jam_mulai }} - {{ $reservasi->jadwal->jam_selesai }}
+                </strong>
+            </div>
+        @endif
 
-    <div class="row-info total">
-        <span>Total Bayar</span>
-        <span>
-            Rp {{ number_format($reservasi->total_harga,0,',','.') }}
-        </span>
+        <div class="divider"></div>
+
+        <div class="row-info total">
+            <span>Total Bayar</span>
+            <span>
+                Rp {{ number_format($reservasi->total_harga, 0, ',', '.') }}
+            </span>
+        </div>
+
+        <div class="row-info">
+            <span>Metode Pembayaran</span>
+            <strong>{{ ucfirst($reservasi->pembayaran->metode) }}</strong>
+        </div>
+
+        <div class="row-info">
+            <span>Status</span>
+            <strong class="text-success">LUNAS</strong>
+        </div>
+
+        <div class="divider"></div>
+
+        <p class="text-center text-muted mb-3">
+            Terima kasih telah melakukan reservasi 🙏
+        </p>
+
+        <div class="text-center">
+            <button onclick="window.print()" class="btn btn-success btn-print">
+                Cetak
+            </button>
+        </div>
     </div>
-
-    <div class="row-info">
-        <span>Metode Pembayaran</span>
-        <strong>{{ ucfirst($reservasi->pembayaran->metode) }}</strong>
-    </div>
-
-    <div class="row-info">
-        <span>Status</span>
-        <strong class="text-success">LUNAS</strong>
-    </div>
-
-    <div class="divider"></div>
-
-    <p class="text-center text-muted mb-3">
-        Terima kasih telah melakukan reservasi 🙏
-    </p>
-
-    <div class="text-center">
-        <button onclick="window.print()" class="btn btn-success btn-print">
-            Cetak
-        </button>
-    </div>
-</div>
 
 </body>
+
 </html>

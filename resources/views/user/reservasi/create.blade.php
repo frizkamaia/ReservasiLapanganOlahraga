@@ -118,7 +118,8 @@
                 <ul class="navbar-nav mx-auto">
                     <li class="nav-item"><a class="nav-link" href="{{ route('user.dashboard') }}">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('user.lapangan.index') }}">Lapangan</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="{{ route('user.reservasi.index') }}">Reservasi</a></li>
+                    <li class="nav-item"><a class="nav-link active"
+                            href="{{ route('user.reservasi.index') }}">Reservasi</a></li>
                 </ul>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
@@ -155,7 +156,8 @@
                         </div>
                         <div class="info-row">
                             <span>Harga / Jam</span>
-                            <strong class="text-success">Rp {{ number_format($lapangan->harga_per_jam,0,',','.') }}</strong>
+                            <strong class="text-success">Rp
+                                {{ number_format($lapangan->harga_per_jam, 0, ',', '.') }}</strong>
                         </div>
 
                         <div class="alert alert-info mt-3 small">
@@ -171,6 +173,23 @@
 
                 <!-- KANAN: Form Reservasi -->
                 <div class="col-lg-7">
+                    {{-- ALERT ERROR --}}
+                    @if (session('error'))
+                        <div class="alert alert-danger small">
+                            ❌ {{ session('error') }}
+                        </div>
+                    @endif
+
+                    @if ($errors->any())
+                        <div class="alert alert-danger small">
+                            <ul class="mb-0">
+                                @foreach ($errors->all() as $error)
+                                    <li>❌ {{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <form action="{{ route('user.reservasi.store') }}" method="POST">
                         @csrf
                         <input type="hidden" name="lapangan_id" value="{{ $lapangan->id }}">
@@ -208,11 +227,11 @@
                             <div id="formJam" class="d-none">
                                 <div class="mb-3">
                                     <label class="form-label">Tanggal Mulai</label>
-                                    <input type="date" name="tanggal_mulai_display" class="form-control">
+                                    <input type="date" name="tanggal_mulai_display" class="form-control" value="{{ old('tanggal_mulai', date('Y-m-d')) }}">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Tanggal Selesai</label>
-                                    <input type="date" name="tanggal_selesai_display" class="form-control">
+                                    <input type="date" name="tanggal_selesai_display" class="form-control" value="{{ old('tanggal_selesai', date('Y-m-d')) }}">
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -225,11 +244,12 @@
                                     </div>
                                 </div>
 
-                                <!-- Hidden input agar dikirim ke controller -->
-                                <input type="hidden" name="tanggal_mulai" id="tanggalMulaiHidden" value="{{ date('Y-m-d') }}">
-                                <input type="hidden" name="tanggal_selesai" id="tanggalSelesaiHidden" value="{{ date('Y-m-d') }}">
-                            </div>
+                                <input type="hidden" name="tanggal_mulai" id="tanggalMulaiHidden"
+                                    value="{{ old('tanggal_mulai', date('Y-m-d')) }}">
+                                <input type="hidden" name="tanggal_selesai" id="tanggalSelesaiHidden"
+                                    value="{{ old('tanggal_selesai', date('Y-m-d')) }}">
 
+                            </div>
 
 
                             <div class="text-end mt-4">

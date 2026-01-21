@@ -15,26 +15,24 @@ class Jadwal extends Model
 
     protected $fillable = [
         'lapangan_id',
-        'tanggal',
+        'tanggal_mulai',
+        'tanggal_selesai',
         'jam_mulai',
         'jam_selesai',
-        'status', // available, booked
+        'status',
     ];
-    
+
     // Pastikan casting untuk tanggal dan waktu
     protected $casts = [
-        //jam
+        // jam
         'tanggal' => 'date',
         'jam_mulai' => 'string',
         'jam_selesai' => 'string',
 
-        //harian
+        // harian
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
     ];
-
-    
-
 
     /**
      * Relasi ke Lapangan (Jadwal dimiliki oleh satu Lapangan)

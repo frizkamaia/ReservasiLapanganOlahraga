@@ -3,49 +3,20 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Lapangan;
 use App\Models\Jadwal;
+use App\Models\Lapangan;
 use App\Models\Reservasi;
-use App\Models\Pembayaran;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class ReservasiController extends Controller
 {
-    // ===============================
-    // AUTO RELEASE JADWAL HABIS
-    // ===============================
-    private function releaseExpiredJadwal()
-    {
-        $now = Carbon::now();
-        $today = $now->toDateString();
-        $currentTime = $now->toTimeString();
-
-        Jadwal::where('status', 'booked')
-            ->where(function ($q) use ($today, $currentTime) {
-
-                // PER JAM → JAM SUDAH LEWAT
-                $q->where(function ($q1) use ($today, $currentTime) {
-                    $q1->whereDate('tanggal', $today)
-                        ->whereTime('jam_selesai', '<', $currentTime);
-                })
-
-                    // HARIAN → TANGGAL SUDAH LEWAT
-                    ->orWhere(function ($q2) use ($today) {
-                        $q2->whereDate('tanggal', '<', $today);
-                    });
-            })
-            ->update(['status' => 'available']);
-    }
-
     // ===============================
     // LIST RESERVASI USER
     // ===============================
     public function index()
     {
-        $this->cekExpiredPembayaran();
-        $this->releaseExpiredJadwal();
 
         $reservasi = Reservasi::with('lapangan', 'jadwal')
             ->where('user_id', Auth::id())
@@ -60,7 +31,6 @@ class ReservasiController extends Controller
     // ===============================
     public function create(Lapangan $lapangan)
     {
-        $this->releaseExpiredJadwal();
 
         return view('user.reservasi.create', compact('lapangan'));
     }
@@ -72,226 +42,178 @@ class ReservasiController extends Controller
     {
         $request->validate([
             'lapangan_id' => 'required|exists:lapangans,id',
-            'tipe_sewa'   => 'required|in:harian,jam',
+            'tipe_sewa' => 'required|in:harian,jam',
         ]);
 
         $lapangan = Lapangan::findOrFail($request->lapangan_id);
-
-        // ===============================
-        // SEWA HARIAN (MULTI HARI)
-        // ===============================
-        if ($request->tipe_sewa === 'harian') {
-
-            $request->validate([
-                'tanggal_mulai'   => 'required|date',
-                'tanggal_selesai' => 'required|date|after:tanggal_mulai',
-            ]);
-
-            $mulai   = Carbon::parse($request->tanggal_mulai);
-            $selesai = Carbon::parse($request->tanggal_selesai);
-            $totalHari = $mulai->diffInDays($selesai);
-
-            if ($totalHari < 1) {
-                return back()->with('error', 'Reservasi minimal 1 hari');
-            }
-
-            // CEK BENTROK RANGE TANGGAL
-            $bentrok = Jadwal::where('lapangan_id', $lapangan->id)
-                ->where('status', 'booked')
-                ->whereBetween('tanggal', [
-                    $mulai->toDateString(),
-                    $selesai->copy()->subDay()->toDateString()
-                ])
-                ->exists();
-
-            if ($bentrok) {
-                return back()->with('error', 'Tanggal sudah dibooking');
-            }
-
-            // ===============================
-            // HITUNG HARGA NORMAL (24 JAM)
-            // ===============================
-            $hargaNormal = $totalHari * 24 * $lapangan->harga_per_jam;
-
-            // ===============================
-            // DISKON BERTINGKAT
-            // ===============================
-            if ($totalHari >= 10) {
-                $diskonPersen = 0.50; // 50%
-            } elseif ($totalHari >= 5) {
-                $diskonPersen = 0.30; // 30%
-            } elseif ($totalHari >= 2) {
-                $diskonPersen = 0.20; // 20%
-            } elseif ($totalHari >= 1) {
-                $diskonPersen = 0.10; // 10%
-            } else {
-                $diskonPersen = 0; // tanpa diskon
-            }
-
-            // ===============================
-            // TOTAL HARGA SETELAH DISKON
-            // ===============================
-            $diskon = $hargaNormal * $diskonPersen;
-            $totalHarga = $hargaNormal - $diskon;
-
-            // BUAT JADWAL PER HARI
-            $jadwalUtama = null;
-
-            for ($i = 0; $i < $totalHari; $i++) {
-                $jadwal = Jadwal::create([
-                    'lapangan_id' => $lapangan->id,
-                    'tanggal'     => $mulai->copy()->addDays($i)->toDateString(),
-                    'jam_mulai'   => '00:00',
-                    'jam_selesai' => '23:59',
-                    'status'      => 'booked',
-                ]);
-
-                if ($i === 0) {
-                    $jadwalUtama = $jadwal;
-                }
-            }
-        }
-
-        // ===============================
-        // SEWA PER JAM
-        // ===============================
-        // ===============================
-        // SEWA PER JAM
-        // ===============================
-        else {
-
-            $request->validate([
-                'jam_mulai'   => 'required',
-                'jam_selesai' => 'required|after:jam_mulai',
-            ]);
-
-            $mulai   = Carbon::parse($request->jam_mulai);
-            $selesai = Carbon::parse($request->jam_selesai);
-            $durasiJam = $mulai->diffInHours($selesai);
-
-            if ($durasiJam < 1) {
-                return back()->with('error', 'Minimal sewa 1 jam');
-            }
-
-            // CEK BENTROK JAM
-            $bentrok = Jadwal::where('lapangan_id', $lapangan->id)
-                ->where('status', 'booked')
-                ->where('tanggal', Carbon::today()->toDateString()) // gunakan tanggal hari ini
-                ->where(function ($q) use ($request) {
-                    $q->whereBetween('jam_mulai', [$request->jam_mulai, $request->jam_selesai])
-                        ->orWhereBetween('jam_selesai', [$request->jam_mulai, $request->jam_selesai])
-                        ->orWhere(function ($q2) use ($request) {
-                            $q2->where('jam_mulai', '<=', $request->jam_mulai)
-                                ->where('jam_selesai', '>=', $request->jam_selesai);
-                        });
-                })
-                ->exists();
-
-            if ($bentrok) {
-                return back()->with('error', 'Jam sudah dibooking');
-            }
-
-            $totalHarga = $durasiJam * $lapangan->harga_per_jam;
-
-            // Buat jadwal utama
-            $jadwalUtama = Jadwal::create([
-                'lapangan_id' => $lapangan->id,
-                'tanggal'     => Carbon::today()->toDateString(), // tanggal hari ini otomatis
-                'jam_mulai'   => $request->jam_mulai,
-                'jam_selesai' => $request->jam_selesai,
-                'status'      => 'booked',
-            ]);
-        }
-
-        // ===============================
-        // SIMPAN RESERVASI
-        // ===============================
-        $reservasi = Reservasi::create([
-            'user_id'         => Auth::id(),
-            'lapangan_id'     => $lapangan->id,
-            'jadwal_id'       => $jadwalUtama->id,
-            'tipe_sewa'       => $request->tipe_sewa,
-            'tanggal_mulai'   => $request->tipe_sewa === 'harian'
-                ? $request->tanggal_mulai
-                : Carbon::today()->toDateString(), // otomatis hari ini untuk sewa per jam
-            'tanggal_selesai' => $request->tipe_sewa === 'harian'
-                ? $request->tanggal_selesai
-                : Carbon::today()->toDateString(),
-            'jam_mulai'       => $request->tipe_sewa === 'jam'
-                ? $request->jam_mulai
-                : '00:00',
-            'jam_selesai'     => $request->tipe_sewa === 'jam'
-                ? $request->jam_selesai
-                : '23:59',
-            'total_harga'     => $totalHarga,
-            'status'          => 'pending',
-        ]);
-
-        return redirect()
-            ->route('user.pembayaran.create', $reservasi->id)
-            ->with('success', 'Reservasi berhasil dibuat, silakan lakukan pembayaran.');
-    }
-
-    // ===============================
-    // JADWAL TERBOOKING (AJAX)
-    // ===============================
-    public function jadwalTerbooking(Request $request)
-    {
-        $this->releaseExpiredJadwal();
-
-        $request->validate([
-            'lapangan_id' => 'required',
-            'tanggal'     => 'required|date',
-            'tipe_sewa'   => 'required|in:harian,jam',
-        ]);
 
         // ===============================
         // SEWA HARIAN
         // ===============================
         if ($request->tipe_sewa === 'harian') {
 
-            // Ambil reservasi harian yang aktif
-            $reservasi = Reservasi::where('lapangan_id', $request->lapangan_id)
-                ->where('tipe_sewa', 'harian')
-                ->where('status', '!=', 'expired')
-                ->whereDate('tanggal_mulai', '<=', $request->tanggal)
-                ->whereDate('tanggal_selesai', '>', $request->tanggal)
-                ->orderBy('tanggal_mulai')
+            $request->validate([
+                'tanggal_mulai' => 'required|date',
+                'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+            ]);
+
+            $mulai = Carbon::parse($request->tanggal_mulai);
+            $selesai = Carbon::parse($request->tanggal_selesai);
+
+            // Cari jadwal admin yang membungkus reservasi
+            $jadwal = Jadwal::where('lapangan_id', $lapangan->id)
+                ->where('status', 'available')
+                ->whereDate('tanggal_mulai', '<=', $mulai)
+                ->whereDate('tanggal_selesai', '>=', $selesai)
                 ->first();
 
-            if (!$reservasi) {
-                return response()->json([
-                    'bentrok' => false
+            if (! $jadwal) {
+                return back()->with('error', 'Jadwal tidak tersedia antara '.$mulai->format('d M Y').' s/d '.$selesai->format('d M Y'));
+            }
+
+            // Cek bentrok reservasi
+            $bentrok = Reservasi::where('lapangan_id', $lapangan->id)
+                ->where('tipe_sewa', 'harian')
+                ->whereIn('status', ['pending', 'disetujui'])
+                ->where(function ($q) use ($mulai, $selesai) {
+                    $q->whereBetween('tanggal_mulai', [$mulai->toDateString(), $selesai->toDateString()])
+                        ->orWhereBetween('tanggal_selesai', [$mulai->toDateString(), $selesai->toDateString()])
+                        ->orWhere(function ($q2) use ($mulai, $selesai) {
+                            $q2->where('tanggal_mulai', '<=', $mulai->toDateString())
+                                ->where('tanggal_selesai', '>=', $selesai->toDateString());
+                        });
+                })->exists();
+
+            if ($bentrok) {
+                return back()->with('error', 'Tanggal sudah dibooking');
+            }
+
+            $totalHari = $mulai->diffInDays($selesai) + 1;
+            $totalHarga = $totalHari * 24 * $lapangan->harga_per_jam;
+
+            // ===============================
+            // Potong jadwal sesuai reservasi
+            // ===============================
+            $jadwalAwal = Carbon::parse($jadwal->tanggal_mulai);
+            $jadwalAkhir = Carbon::parse($jadwal->tanggal_selesai);
+
+            // 1️⃣ Buat jadwal sebelum reservasi
+            if ($mulai->gt($jadwalAwal)) {
+                Jadwal::create([
+                    'lapangan_id' => $jadwal->lapangan_id,
+                    'tanggal_mulai' => $jadwalAwal->toDateString(),
+                    'tanggal_selesai' => $mulai->copy()->subDay()->toDateString(),
+                    'status' => 'available',
                 ]);
             }
 
-            return response()->json([
-                'bentrok'         => true,
-                'tanggal_mulai'   => $reservasi->tanggal_mulai,
-                'tanggal_selesai' => $reservasi->tanggal_selesai,
+            // 2️⃣ Buat jadwal setelah reservasi
+            if ($selesai->lt($jadwalAkhir)) {
+                Jadwal::create([
+                    'lapangan_id' => $jadwal->lapangan_id,
+                    'tanggal_mulai' => $selesai->copy()->addDay()->toDateString(),
+                    'tanggal_selesai' => $jadwalAkhir->toDateString(),
+                    'status' => 'available',
+                ]);
+            }
+
+            // 3️⃣ Update jadwal yang dipakai menjadi booked
+            $jadwal->update([
+                'tanggal_mulai' => $mulai->toDateString(),
+                'tanggal_selesai' => $selesai->toDateString(),
+                'status' => 'booked',
+            ]);
+
+            // 4️⃣ Simpan reservasi
+            $reservasi = Reservasi::create([
+                'user_id' => Auth::id(),
+                'lapangan_id' => $lapangan->id,
+                'jadwal_id' => $jadwal->id,
+                'tipe_sewa' => 'harian',
+                'tanggal_mulai' => $mulai->toDateString(),
+                'tanggal_selesai' => $selesai->toDateString(),
+                'jam_mulai' => '00:00',
+                'jam_selesai' => '23:59',
+                'total_harga' => $totalHarga,
+                'status' => 'pending',
+            ]);
+
+        } else {
+            // ===============================
+            // SEWA PER JAM
+            // ===============================
+            $request->validate([
+                'tanggal_mulai' => 'required|date',
+                'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+                'jam_mulai' => 'required|date_format:H:i',
+                'jam_selesai' => 'required|date_format:H:i',
+            ]);
+
+            $tanggalMulai = Carbon::parse($request->tanggal_mulai);
+            $tanggalSelesai = Carbon::parse($request->tanggal_selesai);
+
+            $jamMulai = Carbon::parse($request->jam_mulai);
+            $jamSelesai = Carbon::parse($request->jam_selesai);
+
+            $mulai = Carbon::parse($tanggalMulai->toDateString().' '.$request->jam_mulai);
+            $selesai = Carbon::parse($tanggalSelesai->toDateString().' '.$request->jam_selesai);
+
+            if ($selesai <= $mulai) {
+                return back()
+                    ->withErrors(['jam_selesai' => 'Jam selesai harus setelah jam mulai'])
+                    ->withInput();
+            }
+
+            // Cari jadwal admin harian (jam kosong)
+            $jadwal = Jadwal::where('lapangan_id', $lapangan->id)
+                ->where('status', 'available')
+                ->whereNull('jam_mulai')
+                ->whereNull('jam_selesai')
+                ->whereDate('tanggal_mulai', '<=', $selesai->toDateString())
+                ->whereDate('tanggal_selesai', '>=', $mulai->toDateString())
+                ->first();
+
+            if (! $jadwal) {
+                return back()->with('error', 'Jadwal harian tidak tersedia');
+            }
+
+            // Cek bentrok jam
+            $bentrok = Reservasi::where('lapangan_id', $lapangan->id)
+                ->where('tipe_sewa', 'jam')
+                ->whereIn('status', ['pending', 'disetujui'])
+                ->where(function ($q) use ($mulai, $selesai) {
+                    $q->whereRaw('? < CONCAT(tanggal_selesai, " ", jam_selesai)', [$mulai])
+                        ->whereRaw('? > CONCAT(tanggal_mulai, " ", jam_mulai)', [$selesai]);
+                })->exists();
+
+            if ($bentrok) {
+                return back()->with('error', 'Jam sudah dibooking');
+            }
+
+            $durasiJam = $mulai->diffInHours($selesai);
+            $totalHarga = $durasiJam * $lapangan->harga_per_jam;
+
+            $reservasi = Reservasi::create([
+                'user_id' => Auth::id(),
+                'lapangan_id' => $lapangan->id,
+                'jadwal_id' => $jadwal->id,
+                'tipe_sewa' => 'jam',
+                'tanggal_mulai' => $tanggalMulai,
+                'tanggal_selesai' => $tanggalSelesai,
+                'jam_mulai' => $jamMulai,
+                'jam_selesai' => $jamSelesai,
+                'total_harga' => $totalHarga,
+                'status' => 'pending',
+            ]);
+
+            $jadwal->update([
+                'status' => 'booked',
             ]);
         }
 
-        // ===============================
-        // SEWA PER JAM
-        // ===============================
-        $jadwal = Jadwal::where('lapangan_id', $request->lapangan_id)
-            ->where('status', 'booked')
-            ->where('tanggal', $request->tanggal)
-            ->orderBy('jam_mulai')
-            ->get(['jam_mulai', 'jam_selesai']);
-
-        return response()->json([
-            'tanggal' => $request->tanggal,
-            'jadwal'  => $jadwal
-        ]);
-    }
-
-    private function cekExpiredPembayaran()
-    {
-        Pembayaran::where('status', 'pending')
-            ->where('expired_at', '<', now())
-            ->update(['status' => 'expired']);
+        return redirect()
+            ->route('user.pembayaran.create', $reservasi->id)
+            ->with('success', 'Reservasi berhasil dibuat, silakan lakukan pembayaran.');
     }
 
     // ===============================
@@ -303,32 +225,17 @@ class ReservasiController extends Controller
             ->where('user_id', Auth::id())
             ->findOrFail($id);
 
-        // ===============================
-        // HITUNG DURASI & KETERANGAN
-        // ===============================
         if ($reservasi->tipe_sewa === 'harian') {
-
-            $tanggalMulai   = Carbon::parse($reservasi->tanggal_mulai);
-            $tanggalSelesai = Carbon::parse($reservasi->tanggal_selesai);
-
-            $durasi = $tanggalMulai->diffInDays($tanggalSelesai);
-
-            $keterangan = $durasi . ' hari';
+            $durasi = Carbon::parse($reservasi->tanggal_mulai)
+                ->diffInDays(Carbon::parse($reservasi->tanggal_selesai)) + 1;
+            $keterangan = $durasi.' hari';
         } else {
-
-            $jamMulai   = Carbon::parse($reservasi->jam_mulai);
-            $jamSelesai = Carbon::parse($reservasi->jam_selesai);
-
-            $durasi = $jamMulai->diffInHours($jamSelesai);
-
-            $keterangan = $durasi . ' jam';
+            $durasi = Carbon::parse($reservasi->jam_mulai)
+                ->diffInHours(Carbon::parse($reservasi->jam_selesai));
+            $keterangan = $durasi.' jam';
         }
 
-        return view('user.reservasi.show', compact(
-            'reservasi',
-            'durasi',
-            'keterangan'
-        ));
+        return view('user.reservasi.show', compact('reservasi', 'durasi', 'keterangan'));
     }
 
     // ===============================
@@ -340,7 +247,7 @@ class ReservasiController extends Controller
             ->where('user_id', Auth::id())
             ->findOrFail($id);
 
-        if (!$reservasi->pembayaran || $reservasi->pembayaran->status !== 'valid') {
+        if (! $reservasi->pembayaran || $reservasi->pembayaran->status !== 'valid') {
             abort(403);
         }
 

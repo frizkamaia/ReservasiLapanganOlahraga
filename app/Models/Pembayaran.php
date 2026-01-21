@@ -24,6 +24,7 @@ class Pembayaran extends Model
     protected $casts = [
         'expired_at' => 'datetime',
     ];
+
     /**
      * Relasi ke Reservasi (Pembayaran dimiliki oleh satu Reservasi)
      */

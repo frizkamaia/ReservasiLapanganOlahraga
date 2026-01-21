@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Reservasi;
 use App\Models\Pembayaran;
+use App\Models\Reservasi;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class PembayaranController extends Controller
 {
@@ -23,15 +23,15 @@ class PembayaranController extends Controller
 
         // HITUNG DURASI
         if ($reservasi->tipe_sewa === 'harian') {
-            $tanggalMulai   = Carbon::parse($reservasi->tanggal_mulai);
+            $tanggalMulai = Carbon::parse($reservasi->tanggal_mulai);
             $tanggalSelesai = Carbon::parse($reservasi->tanggal_selesai);
             $durasi = $tanggalMulai->diffInDays($tanggalSelesai);
-            $keterangan = $durasi . ' hari';
+            $keterangan = $durasi.' hari';
         } else {
-            $jamMulai   = Carbon::parse($reservasi->jam_mulai);
+            $jamMulai = Carbon::parse($reservasi->jam_mulai);
             $jamSelesai = Carbon::parse($reservasi->jam_selesai);
             $durasi = $jamMulai->diffInHours($jamSelesai);
-            $keterangan = $durasi . ' jam';
+            $keterangan = $durasi.' jam';
         }
 
         return view('user.pembayaran.create', compact('reservasi', 'durasi', 'keterangan'));
@@ -68,12 +68,12 @@ class PembayaranController extends Controller
 
         // SIMPAN PEMBAYARAN BARU
         Pembayaran::create([
-            'reservasi_id'   => $reservasi->id,
-            'metode'         => $request->metode_pembayaran,
-            'jumlah'         => $reservasi->total_harga,
+            'reservasi_id' => $reservasi->id,
+            'metode' => $request->metode_pembayaran,
+            'jumlah' => $reservasi->total_harga,
             'bukti_transfer' => $buktiPath,
-            'status'         => 'pending',
-            'expired_at'     => Carbon::now()->addMinutes(30), // 30 menit
+            'status' => 'tidak valid',
+            'expired_at' => Carbon::now()->addMinutes(30), // 30 menit
         ]);
 
         return redirect()

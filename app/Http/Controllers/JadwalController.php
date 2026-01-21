@@ -3,114 +3,96 @@
 namespace App\Http\Controllers;
 
 use App\Models\Jadwal;
-use Carbon\Carbon;
 use App\Models\Lapangan;
-
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class JadwalController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Tampilkan daftar jadwal
      */
-
     public function index()
     {
-        $now = Carbon::now();
+        $now = Carbon::today();
 
         $jadwal = Jadwal::with('lapangan')
-            ->orderBy('tanggal', 'asc')
-            ->orderBy('jam_mulai', 'asc')
-            ->get();
+            ->orderBy('tanggal_mulai')
+            ->orderBy('jam_mulai')
+            ->get()
+            ->map(function ($j) use ($now) {
+                // Tandai jadwal yang sudah lewat (opsional untuk UI)
+                $j->is_expired = Carbon::parse($j->tanggal_selesai)->lt($now);
 
-        foreach ($jadwal as $j) {
-
-            /**
-             * ============================
-             * 1️⃣ HAPUS DATA JADWAL LAMA
-             * ============================
-             */
-            if ($j->tanggal) {
-                $tanggalOnly = Carbon::parse($j->tanggal)->toDateString();
-
-                if (Carbon::parse($tanggalOnly)->lt($now->toDateString())) {
-                    $j->delete();
-                    continue;
-                }
-            }
-
-            /**
-             * ============================
-             * 2️⃣ SEWA PER JAM
-             * ============================
-             */
-            if ($j->jam_selesai && $j->tanggal) {
-
-                $tanggalOnly = Carbon::parse($j->tanggal)->toDateString();
-                $end = Carbon::parse($tanggalOnly . ' ' . $j->jam_selesai);
-
-                if ($end->lt($now) && $j->status === 'booked') {
-                    $j->update(['status' => 'available']);
-                }
-
-                continue;
-            }
-
-            /**
-             * ============================
-             * 3️⃣ SEWA HARIAN
-             * ============================
-             */
-            if ($j->tanggal_selesai) {
-
-                $end = Carbon::parse($j->tanggal_selesai)->endOfDay();
-
-                if ($end->lt($now) && $j->status === 'booked') {
-                    $j->update(['status' => 'available']);
-                }
-            }
-        }
+                return $j;
+            });
 
         return view('admin.jadwal.index', compact('jadwal'));
     }
 
-
-
-
     /**
-     * Tampilkan form tambah jadwal
+     * Form tambah jadwal
      */
     public function create()
     {
         $lapangan = Lapangan::orderBy('nama_lapangan')->get();
+
         return view('admin.jadwal.create', compact('lapangan'));
     }
 
     /**
-     * Simpan data jadwal baru
+     * Simpan jadwal baru
      */
     public function store(Request $request)
     {
         $request->validate([
             'lapangan_id' => 'required|exists:lapangans,id',
-
-            // Tanggal untuk multi-hari
             'tanggal_mulai' => 'required|date',
-            'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
 
-            // Jam-an opsional
-            'jam_mulai' => 'nullable',
-            'jam_selesai' => 'nullable',
+            'tanggal_selesai' => 'nullable|date|after_or_equal:tanggal_mulai',
+
+            'jam_mulai' => 'nullable|date_format:H:i',
+            'jam_selesai' => 'nullable|date_format:H:i',
 
             'status' => 'required|in:available,booked',
         ]);
 
+        $isJam = $request->filled('jam_mulai') && $request->filled('jam_selesai');
+
+        if ($isJam) {
+            $start = Carbon::parse($request->tanggal_mulai.' '.$request->jam_mulai);
+            $end = Carbon::parse($request->tanggal_mulai.' '.$request->jam_selesai);
+
+            // 🔥 LEWAT TENGAH MALAM
+            if ($end->lte($start)) {
+                $end->addDay();
+            }
+
+            // contoh validasi tambahan
+            if ($start->diffInHours($end) < 1) {
+                return back()
+                    ->withErrors(['jam_selesai' => 'Durasi minimal 1 jam'])
+                    ->withInput();
+            }
+
+            $tanggalSelesai = $end->toDateString();
+        } else {
+            // HARiAN
+            if (! $request->filled('tanggal_selesai')) {
+                return back()
+                    ->withErrors(['tanggal_selesai' => 'Tanggal selesai wajib diisi untuk sewa harian'])
+                    ->withInput();
+            }
+
+            $tanggalSelesai = $request->tanggal_selesai;
+        }
+
         Jadwal::create([
             'lapangan_id' => $request->lapangan_id,
             'tanggal_mulai' => $request->tanggal_mulai,
-            'tanggal_selesai' => $request->tanggal_selesai,
-            'jam_mulai' => $request->jam_mulai,
-            'jam_selesai' => $request->jam_selesai,
+            'tanggal_selesai' => $tanggalSelesai,
+            'jam_mulai' => $isJam ? $request->jam_mulai : null,
+            'jam_selesai' => $isJam ? $request->jam_selesai : null,
             'status' => $request->status,
         ]);
 
@@ -120,40 +102,63 @@ class JadwalController extends Controller
     }
 
     /**
-     * Tampilkan form edit jadwal
+     * Form edit jadwal
      */
-    public function edit($id)
+    public function edit(Jadwal $jadwal)
     {
-        $jadwal = Jadwal::findOrFail($id);
         $lapangan = Lapangan::orderBy('nama_lapangan')->get();
+
+        // pastikan nilai jam berupa H:i atau null (biar aman di blade)
+        $jadwal->jam_mulai = $jadwal->jam_mulai ? substr($jadwal->jam_mulai, 0, 5) : null;
+        $jadwal->jam_selesai = $jadwal->jam_selesai ? substr($jadwal->jam_selesai, 0, 5) : null;
 
         return view('admin.jadwal.edit', compact('jadwal', 'lapangan'));
     }
 
     /**
-     * Update data jadwal
+     * Update jadwal
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, Jadwal $jadwal)
     {
-        $request->validate([
+        $validated = $request->validate([
             'lapangan_id' => 'required|exists:lapangans,id',
             'tanggal_mulai' => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable',
-            'jam_selesai' => 'nullable',
+
+            // JAM opsional
+            'jam_mulai' => 'nullable|date_format:H:i',
+            'jam_selesai' => 'nullable|date_format:H:i',
+
+            // enum harus sesuai DB
             'status' => 'required|in:available,booked',
         ]);
 
-        $jadwal = Jadwal::findOrFail($id);
+        /**
+         * ============================
+         * LOGIKA JAM (lintas hari)
+         * ============================
+         */
+        if ($validated['jam_mulai'] && $validated['jam_selesai']) {
+            // jika jam selesai < jam mulai → berarti lintas hari
+            if ($validated['jam_selesai'] < $validated['jam_mulai']) {
+                // pastikan tanggal_selesai MINIMAL besok
+                if ($validated['tanggal_selesai'] == $validated['tanggal_mulai']) {
+                    return back()
+                        ->withErrors([
+                            'jam_selesai' => 'Jam selesai lebih kecil dari jam mulai, tanggal selesai harus berbeda (lintas hari)',
+                        ])
+                        ->withInput();
+                }
+            }
+        }
 
-        $jadwal->update([
-            'lapangan_id' => $request->lapangan_id,
-            'tanggal_mulai' => $request->tanggal_mulai,
-            'tanggal_selesai' => $request->tanggal_selesai,
-            'jam_mulai' => $request->jam_mulai,
-            'jam_selesai' => $request->jam_selesai,
-            'status' => $request->status,
-        ]);
+        // kalau salah satu jam kosong → anggap sewa harian
+        if (! $validated['jam_mulai'] || ! $validated['jam_selesai']) {
+            $validated['jam_mulai'] = null;
+            $validated['jam_selesai'] = null;
+        }
+
+        $jadwal->update($validated);
 
         return redirect()
             ->route('admin.jadwal.index')
@@ -161,11 +166,11 @@ class JadwalController extends Controller
     }
 
     /**
-     * Hapus data jadwal
+     * Hapus jadwal
      */
-    public function destroy($id)
+    public function destroy(Jadwal $jadwal)
     {
-        Jadwal::findOrFail($id)->delete();
+        $jadwal->delete();
 
         return redirect()
             ->route('admin.jadwal.index')

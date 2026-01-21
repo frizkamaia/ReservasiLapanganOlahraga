@@ -174,12 +174,8 @@
 
                     <!-- FOTO -->
                     <div class="col-md-6">
-                        <img
-                            src="{{ $lapangan->foto
-                            ? asset('storage/' . $lapangan->foto)
-                            : 'https://via.placeholder.com/900x500?text=Lapangan' }}"
-                            alt="{{ $lapangan->nama_lapangan }}"
-                            class="lapangan-img">
+                        <img src="{{ $lapangan->foto ? asset('storage/' . $lapangan->foto) : 'https://via.placeholder.com/900x500?text=Lapangan' }}"
+                            alt="{{ $lapangan->nama_lapangan }}" class="lapangan-img">
                     </div>
 
                     <!-- DETAIL -->
@@ -197,73 +193,101 @@
                         </p>
 
                         {{-- JADWAL TERBOOKING --}}
-                        @if($jadwalTerbooking->count())
-                        <div class="mt-3">
-                            <h6 class="text-warning mb-2">
-                                Jadwal Sudah Terbooking
-                            </h6>
+                        @if ($jadwalTerbooking->count())
+                            <div class="mt-3">
+                                <h6 class="text-warning mb-2">
+                                    Jadwal Sudah Terbooking
+                                </h6>
 
-                            <div class="table-responsive">
-                                <table class="table table-dark table-bordered table-sm align-middle mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Tanggal</th>
-                                            <th>Waktu</th>
-                                            <th>Keterangan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($jadwalTerbooking as $item)
-                                        @php
-                                        $tanggalMulai = \Carbon\Carbon::parse($item->tanggal_mulai);
-                                        $tanggalSelesai = \Carbon\Carbon::parse($item->tanggal_selesai);
-                                        @endphp
-                                        <tr>
-                                            {{-- TANGGAL --}}
-                                            <td>
-                                                @if($item->tipe_sewa === 'harian')
-                                                <span class="fw-semibold">
-                                                    {{ $tanggalMulai->format('d M Y') }}
-                                                </span>
-                                                <br>
-                                                <small class="text-warning fw-semibold">
-                                                    s/d {{ $tanggalSelesai->format('d M Y') }}
-                                                </small>
-                                                @else
-                                                <span class="fw-semibold">
-                                                    {{ $tanggalMulai->format('d M Y') }}
-                                                </span>
-                                                @endif
-                                            </td>
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-bordered table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Tanggal</th>
+                                                <th>Waktu</th>
+                                                <th>Keterangan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
 
-                                            {{-- WAKTU --}}
-                                            <td>
-                                                @if($item->tipe_sewa === 'harian')
-                                                Full Day
-                                                @else
-                                                {{ $item->jam_mulai }} – {{ $item->jam_selesai }}
-                                                @endif
-                                            </td>
+                                            @foreach ($jadwalTerbooking as $item)
+                                                @php
+                                                    // relasi aman
+                                                    $reservasi = $item->reservasi->first() ?? null;
 
-                                            {{-- KETERANGAN --}}
-                                            <td>
-                                                @if($item->tipe_sewa === 'harian')
-                                                📅 {{ $tanggalMulai->diffInDays($tanggalSelesai) }} hari
-                                                @else
-                                                ⏰ {{ \Carbon\Carbon::parse($item->jam_mulai)
-                        ->diffInHours(\Carbon\Carbon::parse($item->jam_selesai)) }} jam
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                                    // HARlAN
+                                                    $tanggalMulaiHarian = $item->tanggal_mulai
+                                                        ? \Carbon\Carbon::parse($item->tanggal_mulai)
+                                                        : null;
+
+                                                    $tanggalSelesaiHarian = $item->tanggal_selesai
+                                                        ? \Carbon\Carbon::parse($item->tanggal_selesai)
+                                                        : null;
+
+                                                    // JAM
+                                                    $tanggalJam = $item->tanggal
+                                                        ? \Carbon\Carbon::parse($item->tanggal)
+                                                        : null;
+                                                @endphp
+
+                                                <tr>
+                                                    {{-- TANGGAL --}}
+                                                    <td>
+                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
+                                                            <span class="fw-semibold">
+                                                                {{ $tanggalMulaiHarian?->format('d M Y') }}
+                                                            </span>
+                                                            <br>
+                                                            <small class="text-warning fw-semibold">
+                                                                s/d {{ $tanggalSelesaiHarian?->format('d M Y') }}
+                                                            </small>
+                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
+                                                            <span class="fw-semibold">
+                                                                {{ $tanggalJam?->format('d M Y') }}
+                                                            </span>
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+
+                                                    {{-- WAKTU --}}
+                                                    <td>
+                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
+                                                            Full Day
+                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
+                                                            {{ $item->jam_mulai }} – {{ $item->jam_selesai }}
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+
+                                                    {{-- KETERANGAN --}}
+                                                    <td>
+                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
+                                                            📅
+                                                            {{ $tanggalMulaiHarian && $tanggalSelesaiHarian
+                                                                ? $tanggalMulaiHarian->diffInDays($tanggalSelesaiHarian)
+                                                                : 0 }}
+                                                            hari
+                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
+                                                            ⏰
+                                                            {{ \Carbon\Carbon::parse($item->jam_mulai)->diffInHours(\Carbon\Carbon::parse($item->jam_selesai)) }}
+                                                            jam
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+
+                                    </table>
+                                </div>
+
+                                <small class="text-muted d-block mt-2">
+                                    Silakan pilih jadwal lain yang masih tersedia.
+                                </small>
                             </div>
-
-                            <small class="text-muted d-block mt-2">
-                                Silakan pilih jadwal lain yang masih tersedia.
-                            </small>
-                        </div>
                         @endif
 
                         <div class="action-group mt-4">

@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('jadwals', function (Blueprint $table) {
-            $table->date('tanggal_mulai')->nullable()->after('tanggal');
-            $table->date('tanggal_selesai')->nullable()->after('tanggal_mulai');
+        Schema::table('pembayarans', function (Blueprint $table) {
+            $table->timestamp('expired_at')->nullable()->after('status');
         });
     }
 
@@ -22,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('jadwals', function (Blueprint $table) {
-            $table->dropColumn(['tanggal_mulai', 'tanggal_selesai']);
+        Schema::table('pembayarans', function (Blueprint $table) {
+            $table->dropColumn('expired_at');
         });
     }
 };

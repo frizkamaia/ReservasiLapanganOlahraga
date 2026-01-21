@@ -52,5 +52,4 @@ class LapanganController extends Controller
 
         return view('user.lapangan.show', compact('lapangan', 'jadwalTerbooking'));
     }
-
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -29,6 +30,10 @@ use App\Http\Controllers\User\PembayaranController as UserPembayaranController;
 | ROOT
 |--------------------------------------------------------------------------
 */
+
+Route::get('/register', [RegisteredUserController::class, 'show'])->name('register');
+Route::post('/register', [RegisteredUserController::class, 'store']); 
+
 Route::get('/', function () {
     if (Auth::check()) {
         return Auth::user()->role === 'admin'

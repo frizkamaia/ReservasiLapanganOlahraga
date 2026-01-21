@@ -12,19 +12,40 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('reservasis', function (Blueprint $table) {
-            $table->id(); // id : int
-            // user_id : int (FK)
-            $table->foreignId('user_id')->constrained('user')->onDelete('cascade');
-            // jadwal_id : int (FK)
-            $table->foreignId('jadwal_id')->constrained('jadwals')->onDelete('cascade');
-            // lapangan_id : int (FK)
-            $table->foreignId('lapangan_id')->constrained('lapangans')->onDelete('cascade');
-            $table->integer('total_harga'); // total_harga : int
-            // status : enum (pending, disetujui, ditolak, selesai)
-            $table->enum('status', ['pending', 'disetujui', 'ditolak', 'selesai'])->default('pending');
-            $table->timestamp('created_at')->nullable(); // created_at : timestamp
-            $table->timestamp('updated_at')->nullable(); // updated_at : timestamp
+            $table->id();
+
+            $table->foreignId('user_id')
+                ->constrained('user')
+                ->onDelete('cascade');
+
+            $table->foreignId('lapangan_id')
+                ->constrained('lapangans')
+                ->onDelete('cascade');
+
+            $table->foreignId('jadwal_id')
+                ->constrained('jadwals')
+                ->onDelete('cascade');
+
+            $table->enum('tipe_sewa', ['harian', 'jam']);
+
+            // pilihan user
+            $table->date('tanggal_mulai');
+            $table->date('tanggal_selesai');
+            $table->time('jam_mulai')->nullable();
+            $table->time('jam_selesai')->nullable();
+
+            $table->integer('total_harga');
+
+            $table->enum('status', [
+                'pending',
+                'disetujui',
+                'ditolak',
+                'selesai',
+            ])->default('pending');
+
+            $table->timestamps();
         });
+
     }
 
     /**

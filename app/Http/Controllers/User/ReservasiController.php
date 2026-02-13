@@ -7,6 +7,7 @@ use App\Models\Jadwal;
 use App\Models\Lapangan;
 use App\Models\Reservasi;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -164,19 +165,6 @@ class ReservasiController extends Controller
                     ->withInput();
             }
 
-            // Cari jadwal admin harian (jam kosong)
-            $jadwal = Jadwal::where('lapangan_id', $lapangan->id)
-                ->where('status', 'available')
-                ->whereNull('jam_mulai')
-                ->whereNull('jam_selesai')
-                ->whereDate('tanggal_mulai', '<=', $selesai->toDateString())
-                ->whereDate('tanggal_selesai', '>=', $mulai->toDateString())
-                ->first();
-
-            if (! $jadwal) {
-                return back()->with('error', 'Jadwal harian tidak tersedia');
-            }
-
             // Cek bentrok jam
             $bentrok = Reservasi::where('lapangan_id', $lapangan->id)
                 ->where('tipe_sewa', 'jam')
@@ -190,13 +178,94 @@ class ReservasiController extends Controller
                 return back()->with('error', 'Jam sudah dibooking');
             }
 
+            // ===============================
+            // ✂️ PECAH JADWAL JAM (WAJIB)
+            // ===============================
+            $periode = CarbonPeriod::create($tanggalMulai, $tanggalSelesai);
+
+            foreach ($periode as $tanggal) {
+
+                $jadwalHariIni = Jadwal::where('lapangan_id', $lapangan->id)
+                    ->whereDate('tanggal_mulai', $tanggal)
+                    ->whereDate('tanggal_selesai', $tanggal)
+                    ->where('status', 'available')
+                    ->where(function ($q) {
+                        $q->whereNull('jam_mulai')
+                            ->orWhere(function ($q2) {
+                                $q2->where('jam_mulai', '00:00')
+                                    ->where('jam_selesai', '23:59');
+                            });
+                    })
+                    ->first();
+
+                if (! $jadwalHariIni) {
+                    return back()->with(
+                        'error',
+                        'Jadwal tidak tersedia di tanggal '.$tanggal->format('d M Y')
+                    );
+                }
+
+                $jamMulaiHari = $tanggal->isSameDay($tanggalMulai)
+                    ? $jamMulai
+                    : Carbon::parse('00:00');
+
+                $jamSelesaiHari = $tanggal->isSameDay($tanggalSelesai)
+                    ? $jamSelesai
+                    : Carbon::parse('23:59');
+
+                // sebelum booking
+                if ($jamMulaiHari->gt(Carbon::parse('00:00'))) {
+                    Jadwal::create([
+                        'lapangan_id' => $lapangan->id,
+                        'tanggal_mulai' => $tanggal->toDateString(),
+                        'tanggal_selesai' => $tanggal->toDateString(),
+                        'jam_mulai' => '00:00',
+                        'jam_selesai' => $jamMulaiHari->format('H:i'),
+                        'status' => 'available',
+                    ]);
+                }
+
+                // sesudah booking
+                if ($jamSelesaiHari->lt(Carbon::parse('23:59'))) {
+                    Jadwal::create([
+                        'lapangan_id' => $lapangan->id,
+                        'tanggal_mulai' => $tanggal->toDateString(),
+                        'tanggal_selesai' => $tanggal->toDateString(),
+                        'jam_mulai' => $jamSelesaiHari->format('H:i'),
+                        'jam_selesai' => '23:59',
+                        'status' => 'available',
+                    ]);
+                }
+
+                // booking jam
+                $jadwalHariIni->update([
+                    'jam_mulai' => $jamMulaiHari->format('H:i'),
+                    'jam_selesai' => $jamSelesaiHari->format('H:i'),
+                    'status' => 'booked',
+                ]);
+            }
+
+            // 3️⃣ Update jadwal utama → booked (jam yang dipakai)
+            /* $jadwalHariIni->update([
+                 'tanggal_mulai' => $tanggalMulai->toDateString(),
+                 'tanggal_selesai' => $tanggalMulai->toDateString(),
+                 'jam_mulai' => $jamMulai->format('H:i'),
+                 'jam_selesai' => $jamSelesai->format('H:i'),
+                 'status' => 'booked',
+             ]);*/
+
+            $jadwalReservasi = Jadwal::where('lapangan_id', $lapangan->id)
+                ->whereDate('tanggal_mulai', $tanggalMulai)
+                ->where('status', 'booked')
+                ->first();
+
             $durasiJam = $mulai->diffInHours($selesai);
             $totalHarga = $durasiJam * $lapangan->harga_per_jam;
 
             $reservasi = Reservasi::create([
                 'user_id' => Auth::id(),
                 'lapangan_id' => $lapangan->id,
-                'jadwal_id' => $jadwal->id,
+                'jadwal_id' => $jadwalReservasi->id,
                 'tipe_sewa' => 'jam',
                 'tanggal_mulai' => $tanggalMulai,
                 'tanggal_selesai' => $tanggalSelesai,
@@ -204,10 +273,6 @@ class ReservasiController extends Controller
                 'jam_selesai' => $jamSelesai,
                 'total_harga' => $totalHarga,
                 'status' => 'pending',
-            ]);
-
-            $jadwal->update([
-                'status' => 'booked',
             ]);
         }
 

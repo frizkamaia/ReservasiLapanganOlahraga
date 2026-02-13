@@ -94,17 +94,23 @@
 <body>
 
     <div class="sidebar">
-        <h4>Lapangan Olahraga</h4>
-        <a href="{{ route('user.dashboard') }}">Dashboard</a>
-        <a href="{{ route('user.lapangan.index') }}">Lihat Lapangan</a>
-        <a href="#">Reservasi</a>
-        <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="nav-link btn btn-link p-0" style="text-decoration: none;">
-                    Logout
-                </button>
-            </form>
-    </div>
+    <h4>Lapangan Olahraga</h4>
+
+    <!-- HOME (PUBLIK) -->
+    <a href="{{ route('home') }}">Home</a>
+
+    <!-- KHUSUS LOGIN -->
+    <a href="{{ route('user.dashboard') }}">Dashboard</a>
+    <a href="{{ route('user.lapangan.index') }}">Lihat Lapangan</a>
+    <a href="{{ route('user.reservasi.index') }}">Reservasi</a>
+
+    <form method="POST" action="{{ route('logout') }}">
+        @csrf
+        <button type="submit" class="nav-link btn btn-link p-0 text-start text-white" style="text-decoration: none;">
+            Logout
+        </button>
+    </form>
+</div>
 
     <div class="content">
         <div class="jadwal-wrapper">

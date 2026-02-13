@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reservasi;
+use App\Models\Laporan;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -123,7 +125,53 @@ class ReservasiController extends Controller
             $reservasi->update(['status' => $request->status]);
         }
 
-        return redirect()->route('admin.reservasi.index')->with('success', 'Reservasi berhasil diperbarui');
+        // ===============================
+        // BUAT LAPORAN JIKA STATUS SELESAI
+        // ===============================
+        if ($request->status === 'selesai') {
+
+            if (!Laporan::where('reservasi_id', $reservasi->id)->exists()) {
+
+                // === SEWA PER JAM (FIX TOTAL JAM) ===
+                if ($reservasi->tipe_sewa === 'jam') {
+
+                    $jamMulai = Carbon::createFromFormat('H:i', $reservasi->jam_mulai);
+                    $jamSelesai = Carbon::createFromFormat('H:i', $reservasi->jam_selesai);
+
+                    // 🔥 kalau jam selesai <= jam mulai, anggap lewat tengah malam
+                    if ($jamSelesai->lessThanOrEqualTo($jamMulai)) {
+                        $jamSelesai->addDay();
+                    }
+
+                    $totalJam = $jamMulai->diffInHours($jamSelesai);
+
+                    Laporan::create([
+                        'reservasi_id' => $reservasi->id,
+                        'tanggal'      => now()->toDateString(),
+                        'total_jam'    => $totalJam,
+                        'total_hari'   => null,
+                        'total_bayar'  => $reservasi->total_harga,
+                    ]);
+                }
+                // === SEWA HARIAN ===
+                else {
+
+                    $totalHari = Carbon::parse($reservasi->tanggal_mulai)
+                        ->diffInDays(Carbon::parse($reservasi->tanggal_selesai)) + 1;
+
+                    Laporan::create([
+                        'reservasi_id' => $reservasi->id,
+                        'tanggal'      => now()->toDateString(),
+                        'total_jam'    => null,
+                        'total_hari'   => $totalHari,
+                        'total_bayar'  => $reservasi->total_harga,
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->route('admin.reservasi.index')
+            ->with('success', 'Reservasi berhasil diperbarui');
     }
 
     /**

@@ -130,40 +130,63 @@
 <body>
 
     <!-- NAVBAR -->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ route('user.dashboard') }}">
-                Lapangan Olahraga
-            </a>
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand" href="{{ route('home') }}">
+            Lapangan Olahraga
+        </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-            <div class="collapse navbar-collapse" id="navbarMenu">
-                <!-- MENU TENGAH -->
-                <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+        <div class="collapse navbar-collapse" id="navbarMenu">
+
+            <!-- MENU TENGAH -->
+            <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+
+                <!-- HOME / LAPANGAN (PUBLIC) -->
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{ route('home') }}">Lapangan</a>
+                </li>
+
+                <!-- MENU KHUSUS JIKA LOGIN -->
+                @auth
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('user.dashboard') }}">Dashboard</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ route('user.lapangan.index') }}">Lapangan</a>
-                    </li>
+
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('user.reservasi.index') }}">Reservasi</a>
                     </li>
-                </ul>
 
-                <!-- LOGOUT -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('user.chat.index') }}">
+                            Chat Admin
+                        </a>
+                    </li>
+                @endauth
+
+            </ul>
+
+            <!-- KANAN (LOGIN / LOGOUT) -->
+            @auth
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="btn btn-outline-light btn-sm">
                         Logout
                     </button>
                 </form>
-            </div>
+            @else
+                <a href="{{ route('login') }}" class="btn btn-light btn-sm">
+                    Login
+                </a>
+            @endauth
+
         </div>
-    </nav>
+    </div>
+</nav>
 
     <!-- CONTENT -->
     <div class="content">
@@ -194,100 +217,100 @@
 
                         {{-- JADWAL TERBOOKING --}}
                         @if ($jadwalTerbooking->count())
-                            <div class="mt-3">
-                                <h6 class="text-warning mb-2">
-                                    Jadwal Sudah Terbooking
-                                </h6>
+                        <div class="mt-3">
+                            <h6 class="text-warning mb-2">
+                                Jadwal Sudah Terbooking
+                            </h6>
 
-                                <div class="table-responsive">
-                                    <table class="table table-dark table-bordered table-sm align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Tanggal</th>
-                                                <th>Waktu</th>
-                                                <th>Keterangan</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
+                            <div class="table-responsive">
+                                <table class="table table-dark table-bordered table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Waktu</th>
+                                            <th>Keterangan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
 
-                                            @foreach ($jadwalTerbooking as $item)
-                                                @php
-                                                    // relasi aman
-                                                    $reservasi = $item->reservasi->first() ?? null;
+                                        @foreach ($jadwalTerbooking as $item)
+                                        @php
+                                        // relasi aman
+                                        $reservasi = $item->reservasi->first() ?? null;
 
-                                                    // HARlAN
-                                                    $tanggalMulaiHarian = $item->tanggal_mulai
-                                                        ? \Carbon\Carbon::parse($item->tanggal_mulai)
-                                                        : null;
+                                        // HARlAN
+                                        $tanggalMulaiHarian = $item->tanggal_mulai
+                                        ? \Carbon\Carbon::parse($item->tanggal_mulai)
+                                        : null;
 
-                                                    $tanggalSelesaiHarian = $item->tanggal_selesai
-                                                        ? \Carbon\Carbon::parse($item->tanggal_selesai)
-                                                        : null;
+                                        $tanggalSelesaiHarian = $item->tanggal_selesai
+                                        ? \Carbon\Carbon::parse($item->tanggal_selesai)
+                                        : null;
 
-                                                    // JAM
-                                                    $tanggalJam = $item->tanggal
-                                                        ? \Carbon\Carbon::parse($item->tanggal)
-                                                        : null;
-                                                @endphp
+                                        // JAM
+                                        $tanggalJam = $item->tanggal
+                                        ? \Carbon\Carbon::parse($item->tanggal)
+                                        : null;
+                                        @endphp
 
-                                                <tr>
-                                                    {{-- TANGGAL --}}
-                                                    <td>
-                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
-                                                            <span class="fw-semibold">
-                                                                {{ $tanggalMulaiHarian?->format('d M Y') }}
-                                                            </span>
-                                                            <br>
-                                                            <small class="text-warning fw-semibold">
-                                                                s/d {{ $tanggalSelesaiHarian?->format('d M Y') }}
-                                                            </small>
-                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
-                                                            <span class="fw-semibold">
-                                                                {{ $tanggalJam?->format('d M Y') }}
-                                                            </span>
-                                                        @else
-                                                            -
-                                                        @endif
-                                                    </td>
+                                        <tr>
+                                            {{-- TANGGAL --}}
+                                            <td>
+                                                @if ($item->reservasi->first()?->tipe_sewa === 'harian')
+                                                <span class="fw-semibold">
+                                                    {{ \Carbon\Carbon::parse($item->tanggal_mulai)->format('d M Y') }}
+                                                </span>
+                                                <br>
+                                                <small class="text-warning fw-semibold">
+                                                    s/d {{ \Carbon\Carbon::parse($item->tanggal_selesai)->format('d M Y') }}
+                                                </small>
+                                                @else
+                                                {{-- SEWA PER JAM --}}
+                                                <span class="fw-semibold">
+                                                    {{ \Carbon\Carbon::parse($item->tanggal)->format('d M Y') }}
+                                                </span>
+                                                @endif
+                                            </td>
 
-                                                    {{-- WAKTU --}}
-                                                    <td>
-                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
-                                                            Full Day
-                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
-                                                            {{ $item->jam_mulai }} – {{ $item->jam_selesai }}
-                                                        @else
-                                                            -
-                                                        @endif
-                                                    </td>
 
-                                                    {{-- KETERANGAN --}}
-                                                    <td>
-                                                        @if ($reservasi && $reservasi->tipe_sewa === 'harian')
-                                                            📅
-                                                            {{ $tanggalMulaiHarian && $tanggalSelesaiHarian
+                                            {{-- WAKTU --}}
+                                            <td>
+                                                @if ($reservasi && $reservasi->tipe_sewa === 'harian')
+                                                Full Day
+                                                @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
+                                                {{ $item->jam_mulai }} – {{ $item->jam_selesai }}
+                                                @else
+                                                -
+                                                @endif
+                                            </td>
+
+                                            {{-- KETERANGAN --}}
+                                            <td>
+                                                @if ($reservasi && $reservasi->tipe_sewa === 'harian')
+                                                📅
+                                                {{ $tanggalMulaiHarian && $tanggalSelesaiHarian
                                                                 ? $tanggalMulaiHarian->diffInDays($tanggalSelesaiHarian)
                                                                 : 0 }}
-                                                            hari
-                                                        @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
-                                                            ⏰
-                                                            {{ \Carbon\Carbon::parse($item->jam_mulai)->diffInHours(\Carbon\Carbon::parse($item->jam_selesai)) }}
-                                                            jam
-                                                        @else
-                                                            -
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
+                                                hari
+                                                @elseif($reservasi && $reservasi->tipe_sewa === 'jam')
+                                                ⏰
+                                                {{ \Carbon\Carbon::parse($item->jam_mulai)->diffInHours(\Carbon\Carbon::parse($item->jam_selesai)) }}
+                                                jam
+                                                @else
+                                                -
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
 
-                                    </table>
-                                </div>
-
-                                <small class="text-muted d-block mt-2">
-                                    Silakan pilih jadwal lain yang masih tersedia.
-                                </small>
+                                </table>
                             </div>
+
+                            <small class="text-muted d-block mt-2">
+                                Silakan pilih jadwal lain yang masih tersedia.
+                            </small>
+                        </div>
                         @endif
 
                         <div class="action-group mt-4">

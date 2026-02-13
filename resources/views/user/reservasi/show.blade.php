@@ -99,27 +99,65 @@
 </head>
 
 <body>
-    <!-- NAVBAR -->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ route('user.dashboard') }}">Lapangan Olahraga</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarMenu">
-                <ul class="navbar-nav mx-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ route('user.dashboard') }}">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ route('user.lapangan.index') }}">Lapangan</a></li>
-                    <li class="nav-item"><a class="nav-link active"
-                            href="{{ route('user.reservasi.index') }}">Reservasi</a></li>
-                </ul>
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand" href="{{ route('home') }}">
+            Lapangan Olahraga
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarMenu">
+
+            <!-- MENU TENGAH -->
+            <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+
+                <!-- HOME / LAPANGAN (PUBLIC) -->
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{ route('home') }}">Lapangan</a>
+                </li>
+
+                <!-- MENU KHUSUS JIKA LOGIN -->
+                @auth
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('user.dashboard') }}">Dashboard</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('user.reservasi.index') }}">Reservasi</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('user.chat.index') }}">
+                            Chat Admin
+                        </a>
+                    </li>
+                @endauth
+
+            </ul>
+
+            <!-- KANAN (LOGIN / LOGOUT) -->
+            @auth
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                    <button type="submit" class="btn btn-outline-light btn-sm">
+                        Logout
+                    </button>
                 </form>
-            </div>
+            @else
+                <a href="{{ route('login') }}" class="btn btn-light btn-sm">
+                    Login
+                </a>
+            @endauth
+
         </div>
-    </nav>
+    </div>
+</nav>
+
 
     <!-- CONTENT -->
     <div class="content">

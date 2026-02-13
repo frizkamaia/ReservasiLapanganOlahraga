@@ -53,4 +53,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Reservasi::class, 'user_id');
     }
+
+    public function chats()
+    {
+        return $this->hasMany(Chat::class, 'user_id');
+    }
 }

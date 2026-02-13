@@ -12,11 +12,13 @@ use Illuminate\Support\Facades\Auth;
 
 // ================= ADMIN =================
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\LapanganController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\ReservasiController;
 use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\Admin\ChatAdminController;
 
 // ================= USER ==================
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
@@ -24,6 +26,7 @@ use App\Http\Controllers\User\LapanganController as UserLapanganController;
 use App\Http\Controllers\User\JadwalController as UserJadwalController;
 use App\Http\Controllers\User\ReservasiController as UserReservasiController;
 use App\Http\Controllers\User\PembayaranController as UserPembayaranController;
+use App\Http\Controllers\User\ChatUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,17 +35,11 @@ use App\Http\Controllers\User\PembayaranController as UserPembayaranController;
 */
 
 Route::get('/register', [RegisteredUserController::class, 'show'])->name('register');
-Route::post('/register', [RegisteredUserController::class, 'store']); 
+Route::post('/register', [RegisteredUserController::class, 'store']);
 
-Route::get('/', function () {
-    if (Auth::check()) {
-        return Auth::user()->role === 'admin'
-            ? redirect()->route('admin.dashboard')
-            : redirect()->route('user.dashboard');
-    }
-
-    return redirect()->route('login');
-});
+// HALAMAN AWAL TANPA LOGIN
+Route::get('/', [UserLapanganController::class, 'index'])
+    ->name('home');
 
 
 /*
@@ -57,6 +54,14 @@ Route::prefix('admin')
 
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])
             ->name('dashboard');
+        Route::get('/laporan', [LaporanController::class, 'index'])
+            ->name('laporan.index');
+        Route::get('/chat', [ChatAdminController::class, 'index'])
+            ->name('chat.index');
+        Route::get('/chat/{user}', [ChatAdminController::class, 'show'])
+            ->name('chat.show');
+        Route::post('/chat/{user}', [ChatAdminController::class, 'reply'])
+            ->name('chat.reply');
 
         Route::resource('users', UsersController::class);
         Route::resource('lapangan', LapanganController::class);
@@ -66,7 +71,6 @@ Route::prefix('admin')
             ->only(['index', 'show', 'update'])
             ->parameters(['validasi' => 'pembayaran']);
     });
-
 /*
 |--------------------------------------------------------------------------
 | USER ROUTES
@@ -100,18 +104,25 @@ Route::prefix('user')
         Route::get('/reservasi/detail/{id}', [UserReservasiController::class, 'show'])
             ->name('reservasi.show');
 
-        Route::get('/reservasi/{id}/struk',[UserReservasiController::class, 'struk'])
+        Route::get('/reservasi/{id}/struk', [UserReservasiController::class, 'struk'])
             ->name('reservasi.struk');
 
         Route::post('/reservasi/jadwal-terbooking', [UserReservasiController::class, 'jadwalTerbooking'])
-             ->name('reservasi.jadwalTerbooking');
-             
+            ->name('reservasi.jadwalTerbooking');
+
         Route::get('/pembayaran/{reservasi}', [UserPembayaranController::class, 'create'])
             ->name('pembayaran.create');
 
         Route::post('/pembayaran/{reservasi}', [UserPembayaranController::class, 'store'])
             ->name('pembayaran.store');
+
+        Route::get('/chat', [ChatUserController::class, 'index'])
+            ->name('chat.index');
+
+        Route::post('/chat/kirim', [ChatUserController::class, 'store'])
+            ->name('chat.store');
     });
+
 
 /*
 |--------------------------------------------------------------------------

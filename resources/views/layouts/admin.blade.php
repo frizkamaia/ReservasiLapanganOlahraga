@@ -89,7 +89,7 @@
         <!-- SIDEBAR -->
         <nav class="col-md-3 col-lg-2 d-md-block sidebar">
             <div class="d-flex flex-column h-100">
-
+                
                 <h4 class="text-white">Lapangan Olahraga </h4>
 
                 <ul class="nav flex-column mt-3">
@@ -143,6 +143,20 @@
                     </li>
 
                 </ul>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->is('admin/laporan*') ? 'active' : '' }}"
+                    href="{{ route('admin.laporan.index') }}">
+                        <i class="fa-solid fa-file-lines"></i>
+                        Laporan
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->is('admin/chat*') ? 'active' : '' }}"
+                    href="{{ route('admin.chat.index') }}">
+                        <i class="fa-solid fa-comments"></i>
+                        Chat User
+                    </a>
+                </li>
 
                 <div class="mt-auto text-center text-secondary small">
                     © 2026 Lapangan Olahraga
